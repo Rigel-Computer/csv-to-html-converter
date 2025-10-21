@@ -1,0 +1,537 @@
+<!--
+Dateiname: csv-konverter-suche.html
+Erstellt: 2025-10-20 18:00 UTC
+-->
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV zu HTML Konverter</title>
+    <link rel="stylesheet" href="csv-converter.css">
+</head>
+<body>
+    <div class="container">
+        <div class="upload-section">
+            <h2>CSV zu HTML Konverter 🌐</h2>
+            <p>Folgende Trennzeichen werden automatisch erkannt: Semikolon (;), Komma (,), Tabulator, Pipe (|)</p>
+            <div class="file-input-wrapper">
+                <label for="csvFile" class="file-input-label">📁 Datei auswählen</label>
+                <input type="file" id="csvFile" accept=".csv" onchange="displayFileName()">
+            </div>
+            <div class="file-name" id="fileName"></div>
+            <div class="button-group">
+                <button id="convertBtn" onclick="convertCSV()" disabled>✨ CSV konvertieren</button>
+                <button id="saveBtn" onclick="saveAsHTML()" disabled>💾 Als HTML speichern</button>
+                <button id="printBtn" onclick="window.print()" disabled>🖨️ Drucken</button>
+            </div>
+        </div>
+        
+        <div class="controls-section" id="controlsSection">
+            <div class="control-group">
+                <h3>📊 Anzeigeoptionen</h3>
+                <div class="pagination-controls">
+                    <label>Anzahl pro Seite:</label>
+                    <select id="rowsPerPage" onchange="changeRowsPerPage()">
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
+                    <label>
+                        <input type="checkbox" id="showAll" onchange="toggleShowAll()">
+                        Alles anzeigen
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>🔍 Zeilensuche</h3>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Suchbegriff eingeben (z.B. 'Miete')..." onkeypress="if(event.key==='Enter') searchRows()">
+                    <button onclick="searchRows()">🔍 Suchen</button>
+                    <button onclick="resetSearch()">🔄 Zurücksetzen</button>
+                </div>
+                <div class="search-actions">
+                    <button id="showOnlyFoundBtn" onclick="showOnlyFound()" style="display: none;">✓ Nur Suchergebnisse anzeigen</button>
+                    <button id="hideFoundBtn" onclick="hideFound()" style="display: none;">✗ Suchergebnisse ausblenden</button>
+                    <span class="info-text">(bisherige Markierungen bleiben erhalten)</span>
+                </div>
+                <div class="search-info" id="searchInfo"></div>
+                
+                <div class="hidden-terms" id="hiddenTerms">
+                    <span class="hidden-terms-label">Bisherige ausgeblendete Suchbegriffe - Klick auf das Suchwort zeigt die Einträge wieder:</span>
+                    <div class="hidden-terms-list" id="hiddenTermsList"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>✅ Spaltenauswahl</h3>
+                <div class="column-selector" id="columnSelector"></div>
+                <div class="column-controls">
+                    <button onclick="selectAllColumns()">Alle auswählen</button>
+                    <button onclick="deselectAllColumns()">Alle abwählen</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="output"></div>
+        
+        <div class="pagination-nav" id="paginationNav">
+            <button onclick="goToPage(1)">⏮️ Erste</button>
+            <button onclick="goToPage(currentPage - 1)">◀️ Zurück</button>
+            <span id="pageInfo"></span>
+            <button onclick="goToPage(currentPage + 1)">Weiter ▶️</button>
+            <button onclick="goToPage(totalPages)">Letzte ⏭️</button>
+        </div>
+    </div>
+
+    <script>
+        let allHeaders = [];
+        let allRows = [];
+        let rowSelections = [];
+        let foundRows = [];
+        let searchFilterMode = 'none';
+        let hideMarkedRows = false;
+        let originalFileName = '';
+        let currentPage = 1;
+        let rowsPerPage = 100;
+        let totalPages = 1;
+        let showAllRows = false;
+        let hiddenSearchTerms = {};
+
+        function displayFileName() {
+            const fileInput = document.getElementById('csvFile');
+            const fileNameDisplay = document.getElementById('fileName');
+            const convertBtn = document.getElementById('convertBtn');
+            
+            if (fileInput.files.length > 0) {
+                originalFileName = fileInput.files[0].name.replace('.csv', '');
+                fileNameDisplay.textContent = `Ausgewählt: ${fileInput.files[0].name}`;
+                convertBtn.disabled = false;
+            }
+        }
+
+        function enableButtons() {
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('printBtn').disabled = false;
+        }
+
+        function detectDelimiter(text) {
+            const firstLine = text.split('\n')[0];
+            const delimiters = [';', ',', '\t', '|'];
+            let maxCount = 0;
+            let detectedDelimiter = ';';
+            
+            for (const delimiter of delimiters) {
+                const count = (firstLine.match(new RegExp('\\' + delimiter, 'g')) || []).length;
+                if (count > maxCount) {
+                    maxCount = count;
+                    detectedDelimiter = delimiter;
+                }
+            }
+            
+            return detectedDelimiter;
+        }
+
+        function formatCellValue(value, columnName) {
+            if (!value) return '';
+            
+            const lowerColumnName = columnName.toLowerCase();
+            
+            if (lowerColumnName.includes('betrag') || lowerColumnName.includes('amount') || 
+                lowerColumnName.includes('preis') || lowerColumnName.includes('price')) {
+                const numValue = parseFloat(value.replace(',', '.'));
+                if (!isNaN(numValue)) {
+                    const formatted = numValue.toLocaleString('de-DE', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                    const color = numValue >= 0 ? 'color: #10b981; font-weight: bold;' : 'color: #ef4444; font-weight: bold;';
+                    return `<span style="${color}">${formatted} €</span>`;
+                }
+            }
+            
+            return value;
+        }
+
+        function updateColumnSelector() {
+            const selector = document.getElementById('columnSelector');
+            selector.innerHTML = '';
+            
+            allHeaders.forEach((header, index) => {
+                const item = document.createElement('div');
+                item.className = 'column-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `col-${index}`;
+                checkbox.checked = true;
+                checkbox.onchange = () => updateTableDisplay();
+                
+                const label = document.createElement('label');
+                label.htmlFor = `col-${index}`;
+                label.textContent = header;
+                
+                item.appendChild(checkbox);
+                item.appendChild(label);
+                selector.appendChild(item);
+            });
+        }
+
+        function selectAllColumns() {
+            const checkboxes = document.querySelectorAll('.column-selector input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+            updateTableDisplay();
+        }
+
+        function deselectAllColumns() {
+            const checkboxes = document.querySelectorAll('.column-selector input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateTableDisplay();
+        }
+
+        function getVisibleColumns() {
+            const checkboxes = document.querySelectorAll('.column-selector input[type="checkbox"]');
+            const visibleColumns = [];
+            
+            checkboxes.forEach((cb, index) => {
+                if (cb.checked) {
+                    visibleColumns.push(index);
+                }
+            });
+            
+            return visibleColumns;
+        }
+
+        function changeRowsPerPage() {
+            rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
+            currentPage = 1;
+            updatePagination();
+            updateTableDisplay();
+        }
+
+        function toggleShowAll() {
+            showAllRows = document.getElementById('showAll').checked;
+            updatePagination();
+            updateTableDisplay();
+        }
+
+        function updatePagination() {
+            const paginationNav = document.getElementById('paginationNav');
+            
+            if (showAllRows || allRows.length <= rowsPerPage) {
+                paginationNav.classList.remove('active');
+                totalPages = 1;
+            } else {
+                totalPages = Math.ceil(allRows.length / rowsPerPage);
+                paginationNav.classList.add('active');
+                document.getElementById('pageInfo').textContent = `Seite ${currentPage} von ${totalPages}`;
+            }
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            updateTableDisplay();
+            document.getElementById('pageInfo').textContent = `Seite ${currentPage} von ${totalPages}`;
+        }
+
+        function updateHiddenTermsList() {
+            const list = document.getElementById('hiddenTermsList');
+            const container = document.getElementById('hiddenTerms');
+            
+            list.innerHTML = '';
+            
+            const activeTerms = Object.keys(hiddenSearchTerms).filter(term => hiddenSearchTerms[term]);
+            
+            if (activeTerms.length > 0) {
+                activeTerms.forEach(term => {
+                    const span = document.createElement('span');
+                    span.className = 'hidden-term';
+                    span.textContent = term;
+                    span.onclick = () => unhideSearchTerm(term);
+                    list.appendChild(span);
+                });
+                container.classList.add('active');
+            } else {
+                container.classList.remove('active');
+            }
+        }
+
+        function unhideSearchTerm(term) {
+            hiddenSearchTerms[term] = false;
+            
+            const currentSearch = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (currentSearch === term) {
+                searchFilterMode = 'none';
+            }
+            
+            updateHiddenTermsList();
+            updateTableDisplay();
+        }
+
+        function searchRows() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                alert('Bitte einen Suchbegriff eingeben!');
+                return;
+            }
+
+            foundRows = [];
+            let foundCount = 0;
+
+            allRows.forEach((row, rowIndex) => {
+                const rowText = row.join(' ').toLowerCase();
+                
+                if (rowText.includes(searchTerm)) {
+                    foundRows.push(rowIndex);
+                    foundCount++;
+                }
+            });
+
+            updateTableDisplay();
+            
+            const searchInfo = document.getElementById('searchInfo');
+            const showOnlyBtn = document.getElementById('showOnlyFoundBtn');
+            const hideBtn = document.getElementById('hideFoundBtn');
+            
+            if (foundCount > 0) {
+                searchInfo.textContent = `✓ ${foundCount} Zeile(n) mit "${searchTerm}" gefunden`;
+                searchInfo.style.background = '#dcfce7';
+                searchInfo.style.color = '#166534';
+                showOnlyBtn.style.display = 'inline-block';
+                hideBtn.style.display = 'inline-block';
+            } else {
+                searchInfo.textContent = `✗ Keine Zeilen mit "${searchTerm}" gefunden`;
+                searchInfo.style.background = '#fee2e2';
+                searchInfo.style.color = '#991b1b';
+                showOnlyBtn.style.display = 'none';
+                hideBtn.style.display = 'none';
+            }
+        }
+
+        function showOnlyFound() {
+            searchFilterMode = 'show-only';
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (searchTerm) {
+                hiddenSearchTerms[searchTerm] = false;
+            }
+            updateHiddenTermsList();
+            updateTableDisplay();
+        }
+
+        function hideFound() {
+            searchFilterMode = 'hide';
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (searchTerm) {
+                hiddenSearchTerms[searchTerm] = true;
+            }
+            updateHiddenTermsList();
+            updateTableDisplay();
+        }
+
+        function resetSearch() {
+            foundRows = [];
+            searchFilterMode = 'none';
+            
+            updateTableDisplay();
+            
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchInfo').textContent = '';
+            document.getElementById('showOnlyFoundBtn').style.display = 'none';
+            document.getElementById('hideFoundBtn').style.display = 'none';
+        }
+
+        function toggleMarkedRows() {
+            hideMarkedRows = !hideMarkedRows;
+            updateTableDisplay();
+        }
+
+        function updateRowVisibility() {
+            allRows.forEach((row, rowIndex) => {
+                const checkbox = document.getElementById(`row-${rowIndex}`);
+                
+                if (checkbox) {
+                    rowSelections[rowIndex] = checkbox.checked;
+                }
+            });
+        }
+
+        function updateTableDisplay() {
+            const visibleColumns = getVisibleColumns();
+            
+            const buttonText = hideMarkedRows ? '👁️ Markierte einblenden' : '🚫 Markierte ausblenden';
+            
+            let html = '<div class="table-controls"><button onclick="toggleMarkedRows()">' + buttonText + '</button></div>';
+            html += '<h1>CSV Daten</h1>';
+            html += '<table>';
+            html += '<thead><tr>';
+            html += '<th class="select-column">☑️</th>';
+            
+            allHeaders.forEach((header, index) => {
+                if (visibleColumns.includes(index)) {
+                    html += `<th>${header}</th>`;
+                }
+            });
+            
+            html += '</tr></thead>';
+            html += '<tbody>';
+            
+            const startIndex = showAllRows ? 0 : (currentPage - 1) * rowsPerPage;
+            const endIndex = showAllRows ? allRows.length : Math.min(startIndex + rowsPerPage, allRows.length);
+            
+            for (let rowIndex = startIndex; rowIndex < endIndex; rowIndex++) {
+                const row = allRows[rowIndex];
+                const isFound = foundRows.includes(rowIndex);
+                const isMarked = rowSelections[rowIndex];
+                
+                let isHidden = false;
+                
+                if (searchFilterMode === 'show-only' && !isFound) {
+                    isHidden = true;
+                } else if (searchFilterMode === 'hide' && isFound) {
+                    isHidden = true;
+                }
+                
+                if (hideMarkedRows && isMarked) {
+                    isHidden = true;
+                }
+                
+                const hiddenClass = isHidden ? 'hidden-row' : '';
+                
+                html += `<tr id="tr-${rowIndex}" class="${hiddenClass}">`;
+                html += `<td class="select-column"><input type="checkbox" id="row-${rowIndex}" ${rowSelections[rowIndex] ? 'checked' : ''} onchange="updateRowVisibility()"></td>`;
+                
+                row.forEach((cell, cellIndex) => {
+                    if (visibleColumns.includes(cellIndex)) {
+                        const formattedValue = formatCellValue(cell, allHeaders[cellIndex]);
+                        html += `<td>${formattedValue}</td>`;
+                    }
+                });
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table>';
+            html += '<div class="table-controls"><button onclick="toggleMarkedRows()">' + buttonText + '</button></div>';
+            
+            document.getElementById('output').innerHTML = html;
+        }
+
+        function saveAsHTML() {
+            const visibleColumns = getVisibleColumns();
+            
+            let html = '<h1>CSV Daten</h1><table><thead><tr>';
+            
+            allHeaders.forEach((header, index) => {
+                if (visibleColumns.includes(index)) {
+                    html += `<th>${header}</th>`;
+                }
+            });
+            
+            html += '</tr></thead><tbody>';
+            
+            // Exportiere nur NICHT-markierte Zeilen (markiert = soll raus)
+            allRows.forEach((row, rowIndex) => {
+                if (!rowSelections[rowIndex]) {
+                    html += '<tr>';
+                    row.forEach((cell, cellIndex) => {
+                        if (visibleColumns.includes(cellIndex)) {
+                            const formattedValue = formatCellValue(cell, allHeaders[cellIndex]);
+                            html += `<td>${formattedValue}</td>`;
+                        }
+                    });
+                    html += '</tr>';
+                }
+            });
+            
+            html += '</tbody></table>';
+
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const fileName = originalFileName ? `${originalFileName}-export.html` : `csv-export-${dateStr}.html`;
+
+            const htmlContent = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSV Export</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:40px 20px;background:#f5f5f5}#output{max-width:1400px;margin:0 auto;padding:20px;background:white;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}table{width:100%;border-collapse:collapse;margin:20px 0;background:white;border-radius:10px;overflow:hidden}h1{color:#333;font-size:22px;margin-bottom:15px;text-align:center}th{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:10px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}td{padding:8px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:11px;color:#444}tr:last-child td{border-bottom:none}tr:hover{background-color:#f8f9ff}@media print{body{background:white;padding:0}#output{padding:0;box-shadow:none}h1{font-size:16px;margin-bottom:10px}th{padding:6px;font-size:9px}td{padding:4px 6px;font-size:9px}tr{page-break-inside:avoid}@page{margin:1cm}}
+</style>
+</head>
+<body><div id="output">${html}</div></body>
+</html>`;
+
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function convertCSV() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Bitte wähle zuerst eine CSV-Datei aus!');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                
+                if (lines.length === 0) {
+                    alert('Die CSV-Datei ist leer!');
+                    return;
+                }
+                
+                const delimiter = detectDelimiter(text);
+                
+                allHeaders = lines[0].split(delimiter).map(h => h.replace(/"/g, '').trim());
+                allRows = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const cells = line.split(delimiter).map(cell => cell.replace(/"/g, '').trim());
+                    
+                    if (cells.length === allHeaders.length) {
+                        allRows.push(cells);
+                    }
+                }
+                
+                rowSelections = new Array(allRows.length).fill(false);
+                currentPage = 1;
+                
+                enableButtons();
+                document.getElementById('controlsSection').classList.add('active');
+                updateColumnSelector();
+                updatePagination();
+                updateTableDisplay();
+                
+                document.getElementById('searchInfo').textContent = '';
+                document.getElementById('showOnlyFoundBtn').style.display = 'none';
+                document.getElementById('hideFoundBtn').style.display = 'none';
+            };
+            
+            reader.onerror = function() {
+                alert('Fehler beim Lesen der Datei!');
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+    </script>
+</body>
+</html>
