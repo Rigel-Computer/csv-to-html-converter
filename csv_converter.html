@@ -99,6 +99,7 @@ Erstellt: 2025-10-20 18:00 UTC
         let totalPages = 1;
         let showAllRows = false;
         let hiddenSearchTerms = {};
+        let hiddenRowsByTerm = {}; // Speichert pro Begriff welche Zeilen ausgeblendet sind
 
         function displayFileName() {
             const fileInput = document.getElementById('csvFile');
@@ -115,6 +116,39 @@ Erstellt: 2025-10-20 18:00 UTC
         function enableButtons() {
             document.getElementById('saveBtn').disabled = false;
             document.getElementById('printBtn').disabled = false;
+        }
+
+        function parseCSVLine(line, delimiter) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+                
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // Escaped quote
+                        current += '"';
+                        i++;
+                    } else {
+                        // Toggle quote state
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === delimiter && !inQuotes) {
+                    // End of field
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            // Add last field
+            result.push(current.trim());
+            
+            return result;
         }
 
         function detectDelimiter(text) {
@@ -243,7 +277,8 @@ Erstellt: 2025-10-20 18:00 UTC
             
             list.innerHTML = '';
             
-            const activeTerms = Object.keys(hiddenSearchTerms).filter(term => hiddenSearchTerms[term]);
+            // Nur Begriffe mit true-Wert anzeigen
+            const activeTerms = Object.keys(hiddenSearchTerms).filter(term => hiddenSearchTerms[term] === true);
             
             if (activeTerms.length > 0) {
                 activeTerms.forEach(term => {
@@ -260,8 +295,11 @@ Erstellt: 2025-10-20 18:00 UTC
         }
 
         function unhideSearchTerm(term) {
-            hiddenSearchTerms[term] = false;
+            // Entferne Begriff komplett aus dem System
+            delete hiddenSearchTerms[term];
+            delete hiddenRowsByTerm[term];
             
+            // Wenn dieser Begriff aktuell gesucht ist, Filter zurücksetzen
             const currentSearch = document.getElementById('searchInput').value.toLowerCase().trim();
             if (currentSearch === term) {
                 searchFilterMode = 'none';
@@ -314,20 +352,21 @@ Erstellt: 2025-10-20 18:00 UTC
 
         function showOnlyFound() {
             searchFilterMode = 'show-only';
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-            if (searchTerm) {
-                hiddenSearchTerms[searchTerm] = false;
-            }
-            updateHiddenTermsList();
             updateTableDisplay();
         }
 
         function hideFound() {
-            searchFilterMode = 'hide';
             const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-            if (searchTerm) {
+            
+            if (!searchTerm) return;
+            
+            // Speichere den Begriff und die betroffenen Zeilen
+            if (!hiddenSearchTerms[searchTerm]) {
                 hiddenSearchTerms[searchTerm] = true;
+                hiddenRowsByTerm[searchTerm] = [...foundRows]; // Kopie des Arrays
             }
+            
+            searchFilterMode = 'none'; // Filter zurücksetzen
             updateHiddenTermsList();
             updateTableDisplay();
         }
@@ -349,14 +388,25 @@ Erstellt: 2025-10-20 18:00 UTC
             updateTableDisplay();
         }
 
+        function updateRowCheckbox(rowIndex) {
+            const checkbox = document.getElementById(`row-${rowIndex}`);
+            if (checkbox) {
+                rowSelections[rowIndex] = checkbox.checked;
+            }
+        }
+
         function updateRowVisibility() {
-            allRows.forEach((row, rowIndex) => {
+            // Aktualisiere rowSelections basierend auf den DOM-Checkboxen
+            // Durchlaufe alle Zeilen, nicht nur die aktuell sichtbaren
+            const startIndex = showAllRows ? 0 : (currentPage - 1) * rowsPerPage;
+            const endIndex = showAllRows ? allRows.length : Math.min(startIndex + rowsPerPage, allRows.length);
+            
+            for (let rowIndex = startIndex; rowIndex < endIndex; rowIndex++) {
                 const checkbox = document.getElementById(`row-${rowIndex}`);
-                
                 if (checkbox) {
                     rowSelections[rowIndex] = checkbox.checked;
                 }
-            });
+            }
         }
 
         function updateTableDisplay() {
@@ -389,12 +439,22 @@ Erstellt: 2025-10-20 18:00 UTC
                 
                 let isHidden = false;
                 
+                // Suchfilter für aktuelle Suche
                 if (searchFilterMode === 'show-only' && !isFound) {
                     isHidden = true;
                 } else if (searchFilterMode === 'hide' && isFound) {
                     isHidden = true;
                 }
                 
+                // Prüfe alle ausgeblendeten Suchbegriffe
+                for (const term in hiddenRowsByTerm) {
+                    if (hiddenSearchTerms[term] === true && hiddenRowsByTerm[term].includes(rowIndex)) {
+                        isHidden = true;
+                        break;
+                    }
+                }
+                
+                // Markierte ausblenden
                 if (hideMarkedRows && isMarked) {
                     isHidden = true;
                 }
@@ -402,7 +462,7 @@ Erstellt: 2025-10-20 18:00 UTC
                 const hiddenClass = isHidden ? 'hidden-row' : '';
                 
                 html += `<tr id="tr-${rowIndex}" class="${hiddenClass}">`;
-                html += `<td class="select-column"><input type="checkbox" id="row-${rowIndex}" ${rowSelections[rowIndex] ? 'checked' : ''} onchange="updateRowVisibility()"></td>`;
+                html += `<td class="select-column"><input type="checkbox" id="row-${rowIndex}" ${rowSelections[rowIndex] ? 'checked' : ''} onchange="updateRowCheckbox(${rowIndex})"></td>`;
                 
                 row.forEach((cell, cellIndex) => {
                     if (visibleColumns.includes(cellIndex)) {
@@ -432,9 +492,35 @@ Erstellt: 2025-10-20 18:00 UTC
             
             html += '</tr></thead><tbody>';
             
-            // Exportiere nur NICHT-markierte Zeilen (markiert = soll raus)
+            // Exportiere nur die Zeilen, die aktuell in der Ansicht sichtbar wären
             allRows.forEach((row, rowIndex) => {
-                if (!rowSelections[rowIndex]) {
+                const isFound = foundRows.includes(rowIndex);
+                const isMarked = rowSelections[rowIndex];
+                
+                let isHidden = false;
+                
+                // Suchfilter für aktuelle Suche
+                if (searchFilterMode === 'show-only' && !isFound) {
+                    isHidden = true;
+                } else if (searchFilterMode === 'hide' && isFound) {
+                    isHidden = true;
+                }
+                
+                // Prüfe alle ausgeblendeten Suchbegriffe
+                for (const term in hiddenRowsByTerm) {
+                    if (hiddenSearchTerms[term] === true && hiddenRowsByTerm[term].includes(rowIndex)) {
+                        isHidden = true;
+                        break;
+                    }
+                }
+                
+                // Markierte ausblenden
+                if (hideMarkedRows && isMarked) {
+                    isHidden = true;
+                }
+                
+                // Exportiere nur sichtbare Zeilen
+                if (!isHidden) {
                     html += '<tr>';
                     row.forEach((cell, cellIndex) => {
                         if (visibleColumns.includes(cellIndex)) {
@@ -498,22 +584,32 @@ Erstellt: 2025-10-20 18:00 UTC
                 
                 const delimiter = detectDelimiter(text);
                 
-                allHeaders = lines[0].split(delimiter).map(h => h.replace(/"/g, '').trim());
+                allHeaders = parseCSVLine(lines[0], delimiter);
                 allRows = [];
                 
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (!line) continue;
                     
-                    const cells = line.split(delimiter).map(cell => cell.replace(/"/g, '').trim());
+                    const cells = parseCSVLine(line, delimiter);
                     
-                    if (cells.length === allHeaders.length) {
+                    // Flexibler Check: Akzeptiere Zeilen mit gleicher oder ähnlicher Länge
+                    if (cells.length >= allHeaders.length - 2 && cells.length <= allHeaders.length + 2) {
+                        // Passe Zeilenlänge an Header an
+                        while (cells.length < allHeaders.length) {
+                            cells.push('');
+                        }
+                        if (cells.length > allHeaders.length) {
+                            cells.length = allHeaders.length;
+                        }
                         allRows.push(cells);
                     }
                 }
                 
                 rowSelections = new Array(allRows.length).fill(false);
                 currentPage = 1;
+                hiddenSearchTerms = {};
+                hiddenRowsByTerm = {};
                 
                 enableButtons();
                 document.getElementById('controlsSection').classList.add('active');
