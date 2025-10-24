@@ -22,7 +22,10 @@ Erstellt: 2025-10-20 18:00 UTC
             <div class="file-name" id="fileName"></div>
             <div class="button-group">
                 <button id="convertBtn" onclick="convertCSV()" disabled>✨ CSV konvertieren</button>
+            </div>
+            <div class="button-group">
                 <button id="saveBtn" onclick="saveAsHTML()" disabled>💾 Als HTML speichern</button>
+                <button id="saveCsvBtn" onclick="saveAsCSV()" disabled>📊 Als CSV speichern</button>
                 <button id="printBtn" onclick="window.print()" disabled>🖨️ Drucken</button>
             </div>
         </div>
@@ -115,6 +118,7 @@ Erstellt: 2025-10-20 18:00 UTC
 
         function enableButtons() {
             document.getElementById('saveBtn').disabled = false;
+            document.getElementById('saveCsvBtn').disabled = false;
             document.getElementById('printBtn').disabled = false;
         }
 
@@ -560,6 +564,82 @@ Erstellt: 2025-10-20 18:00 UTC
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
+        }
+
+        function saveAsCSV() {
+            const visibleColumns = getVisibleColumns();
+            
+            // CSV-Header erstellen
+            let csvContent = '';
+            const headerRow = [];
+            allHeaders.forEach((header, index) => {
+                if (visibleColumns.includes(index)) {
+                    headerRow.push(escapeCsvField(header));
+                }
+            });
+            csvContent += headerRow.join(';') + '\n';
+            
+            // Nur sichtbare Zeilen exportieren (gleiche Logik wie HTML-Export)
+            allRows.forEach((row, rowIndex) => {
+                const isFound = foundRows.includes(rowIndex);
+                const isMarked = rowSelections[rowIndex];
+                
+                let isHidden = false;
+                
+                // Suchfilter für aktuelle Suche
+                if (searchFilterMode === 'show-only' && !isFound) {
+                    isHidden = true;
+                } else if (searchFilterMode === 'hide' && isFound) {
+                    isHidden = true;
+                }
+                
+                // Prüfe alle ausgeblendeten Suchbegriffe
+                for (const term in hiddenRowsByTerm) {
+                    if (hiddenSearchTerms[term] === true && hiddenRowsByTerm[term].includes(rowIndex)) {
+                        isHidden = true;
+                        break;
+                    }
+                }
+                
+                // Markierte ausblenden
+                if (hideMarkedRows && isMarked) {
+                    isHidden = true;
+                }
+                
+                // Exportiere nur sichtbare Zeilen
+                if (!isHidden) {
+                    const rowData = [];
+                    row.forEach((cell, cellIndex) => {
+                        if (visibleColumns.includes(cellIndex)) {
+                            rowData.push(escapeCsvField(cell));
+                        }
+                    });
+                    csvContent += rowData.join(';') + '\n';
+                }
+            });
+            
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const fileName = originalFileName ? `${originalFileName}-export.csv` : `csv-export-${dateStr}.csv`;
+            
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeCsvField(field) {
+            if (field === null || field === undefined) return '';
+            const stringField = String(field);
+            if (stringField.includes(';') || stringField.includes('"') || stringField.includes('\n')) {
+                return '"' + stringField.replace(/"/g, '""') + '"';
+            }
+            return stringField;
         }
 
         function convertCSV() {
