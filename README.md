@@ -1,4 +1,4 @@
-<!-- 20.10.2025 21:45 (Berlin) — README for CSV-to-HTML Converter, concise project overview -->
+<!-- 24.10.2025 — README for CSV-to-HTML Converter, updated feature set -->
 
 # CSV to HTML Converter
 
@@ -11,9 +11,12 @@ No Excel. No installation. No data upload.
 
 - **Automatic delimiter detection** — semicolon, comma, tab, or pipe  
 - **Smart formatting** — color-coded values, compact layout, currency detection  
-- **Filtering & search** — select columns, hide rows, additive keyword filtering  
-- **Pagination** — fast handling of large datasets  
-- **Export options** — save as standalone HTML file, print-ready layout  
+- **Advanced filtering** — select columns, hide rows, additive keyword search  
+- **Search history** — hidden terms remain clickable and reversible  
+- **Dual scrollbar** — synchronized horizontal scrolling top and bottom  
+- **Intelligent pagination** — 50/100/200/500 rows per page, or show all at once  
+- **Dual navigation** — pagination controls appear both above and below the table  
+- **Export options** — save as HTML **or** re-export filtered data as CSV  
 - **Local processing only** — no uploads, no tracking, full data privacy  
 - **Sustainability focus** — saves time, paper, and energy  
 
@@ -32,19 +35,21 @@ All actions are processed locally in your browser — your data never leaves you
 
 ## Use Cases
 
-- Bank statements  
+- Bank statements and financial data  
 - Time tracking exports  
 - Project management data (Jira, Trello, Asana)  
-- E-commerce orders  
-- Member lists or reports  
+- E-commerce orders and transaction logs  
+- Member lists, reports, or official documents  
+- **Data cleanup** — filter large CSVs and re-export only what you need  
 
 ---
 
 ## Advantages
 
-- Works **offline**
-- Fully **cross-platform**
-- 100% **private and sustainable**
+- Works **offline**  
+- Fully **cross-platform** (Windows, Mac, Linux)  
+- 100% **private and sustainable**  
+- **Round-trip workflow** — CSV in, clean CSV out  
 
 ---
 
@@ -55,4 +60,4 @@ Feel free to use, modify, and distribute with attribution.
 
 ---
 
-<!-- 20.10.2025 21:45 (Berlin) — End of README -->
+<!-- 24.10.2025 — End of README -->

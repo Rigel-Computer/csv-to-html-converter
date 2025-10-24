@@ -1,4 +1,4 @@
-<!-- 20.10.2025 21:47 (Berlin) — README_DE für CSV-zu-HTML-Konverter, kompakte Projektübersicht -->
+<!-- 24.10.2025 — README_DE für CSV-zu-HTML-Konverter, aktualisierte Features -->
 
 # CSV-zu-HTML-Konverter
 
@@ -11,9 +11,12 @@ Kein Excel. Keine Installation. Kein Upload.
 
 - **Automatische Trennzeichenerkennung** — Semikolon, Komma, Tabulator oder Pipe  
 - **Intelligente Formatierung** — farbige Beträge, kompaktes Layout, Währungslogik  
-- **Filter & Suche** — Spaltenauswahl, Zeilen ausblenden, additive Suchbegriffe  
-- **Pagination** — schnelle Navigation bei großen Datensätzen  
-- **Exportfunktion** — speichert als eigenständige, druckoptimierte HTML-Datei  
+- **Erweiterte Filterung** — Spaltenauswahl, Zeilen ausblenden, additive Suchbegriffe  
+- **Suchbegriff-Historie** — ausgeblendete Begriffe bleiben klickbar und reaktivierbar  
+- **Doppelter Scrollbalken** — synchronisiertes horizontales Scrollen oben und unten  
+- **Intelligente Pagination** — 50/100/200/500 Zeilen pro Seite, oder alles auf einmal  
+- **Doppelte Navigation** — Seitensteuerung erscheint oberhalb und unterhalb der Tabelle  
+- **Exportoptionen** — speichert als HTML **oder** exportiert gefilterte Daten zurück als CSV  
 - **Lokale Verarbeitung** — keine Cloud, keine Server, volle Datensouveränität  
 - **Nachhaltig** — spart Zeit, Papier und Energie  
 
@@ -36,15 +39,17 @@ Alle Prozesse laufen lokal im Browser – keine Daten verlassen das Gerät.
 - Zeiterfassungs-Exporte  
 - Projektmanagement-Daten (Jira, Trello, Asana)  
 - Bestellübersichten im E-Commerce  
-- Mitgliederlisten, Berichte, Nachweise  
+- Mitgliederlisten, Berichte, behördliche Nachweise  
+- **Datenbereinigung** — große CSVs filtern und nur Relevantes neu exportieren  
 
 ---
 
 ## Vorteile
 
 - Funktioniert **offline**  
-- Plattformübergreifend  
-- 100 % **datenschutzkonform und ressourcenschonend**
+- Plattformübergreifend (Windows, Mac, Linux)  
+- 100 % **datenschutzkonform und ressourcenschonend**  
+- **Round-Trip-Workflow** — CSV rein, bereinigte CSV raus  
 
 ---
 
@@ -55,4 +60,4 @@ Nutzung, Anpassung und Weitergabe sind mit Quellenangabe erlaubt.
 
 ---
 
-<!-- 20.10.2025 21:47 (Berlin) — Ende README_DE -->
+<!-- 24.10.2025 — Ende README_DE -->

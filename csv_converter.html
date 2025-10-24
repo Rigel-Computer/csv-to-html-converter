@@ -420,6 +420,12 @@ Erstellt: 2025-10-20 18:00 UTC
             
             let html = '<div class="table-controls"><button onclick="toggleMarkedRows()">' + buttonText + '</button></div>';
             html += '<h1>CSV Daten</h1>';
+            
+            // Oberer Scrollbalken-Wrapper
+            html += '<div class="scroll-wrapper-top" id="scrollWrapperTop"><div class="scroll-content-top"></div></div>';
+            
+            // Haupttabelle in scrollbarem Container
+            html += '<div class="table-scroll-container" id="tableScrollContainer">';
             html += '<table>';
             html += '<thead><tr>';
             html += '<th class="select-column">☑️</th>';
@@ -478,9 +484,37 @@ Erstellt: 2025-10-20 18:00 UTC
             }
             
             html += '</tbody></table>';
+            html += '</div>'; // Ende table-scroll-container
             html += '<div class="table-controls"><button onclick="toggleMarkedRows()">' + buttonText + '</button></div>';
             
             document.getElementById('output').innerHTML = html;
+            
+            // Synchronisiere die Scrollbalken
+            syncScrollbars();
+        }
+        
+        function syncScrollbars() {
+            const topWrapper = document.getElementById('scrollWrapperTop');
+            const tableContainer = document.getElementById('tableScrollContainer');
+            
+            if (!topWrapper || !tableContainer) return;
+            
+            // Setze die Breite des oberen Scroll-Contents auf die Tabellenbreite
+            const table = tableContainer.querySelector('table');
+            if (table) {
+                const scrollContent = topWrapper.querySelector('.scroll-content-top');
+                scrollContent.style.width = table.scrollWidth + 'px';
+            }
+            
+            // Synchronisiere oberen Scrollbalken mit Tabellen-Scroll
+            tableContainer.addEventListener('scroll', function() {
+                topWrapper.scrollLeft = tableContainer.scrollLeft;
+            });
+            
+            // Synchronisiere Tabellen-Scroll mit oberem Scrollbalken
+            topWrapper.addEventListener('scroll', function() {
+                tableContainer.scrollLeft = topWrapper.scrollLeft;
+            });
         }
 
         function saveAsHTML() {

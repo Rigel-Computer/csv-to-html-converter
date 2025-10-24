@@ -264,7 +264,9 @@ button:disabled {
     cursor: pointer;
 }
 
-.pagination-nav {
+.pagination-nav,
+#paginationNav,
+#paginationNavTop {
     display: none;
     justify-content: center;
     align-items: center;
@@ -273,16 +275,22 @@ button:disabled {
     padding: 15px;
 }
 
-.pagination-nav.active {
+.pagination-nav.active,
+#paginationNav.active,
+#paginationNavTop.active {
     display: flex;
 }
 
-.pagination-nav button {
+.pagination-nav button,
+#paginationNav button,
+#paginationNavTop button {
     padding: 8px 16px;
     font-size: 13px;
 }
 
-.pagination-nav span {
+.pagination-nav span,
+#paginationNav span,
+#paginationNavTop span {
     font-size: 14px;
     color: #333;
     padding: 0 10px;
@@ -342,6 +350,24 @@ button:disabled {
 #output {
     padding: 10px;
     overflow-x: auto;
+}
+
+.scroll-wrapper-top {
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 20px;
+    margin-bottom: 5px;
+    background: #f3f4f6;
+    border-radius: 5px;
+}
+
+.scroll-content-top {
+    height: 1px;
+}
+
+.table-scroll-container {
+    overflow-x: auto;
+    overflow-y: visible;
 }
 
 table {
@@ -423,7 +449,9 @@ tr.hidden-row {
     .upload-section,
     .controls-section,
     button,
-    .pagination-nav {
+    .pagination-nav,
+    #paginationNav,
+    #paginationNavTop {
         display: none !important;
     }
     
